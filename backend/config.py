@@ -7,9 +7,9 @@ load_dotenv()
 class Config:
     # Flask Settings
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-1298471239')
-    DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     PORT = int(os.environ.get('PORT', 5000))
-    HOST = os.environ.get('HOST', '127.0.0.1')
+    HOST = os.environ.get('HOST', '0.0.0.0')
     
     # LLM Model Config
     # Supports Gemini API or mock endpoints for testing/offline scenarios
