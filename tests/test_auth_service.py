@@ -59,6 +59,16 @@ class AuthServiceTests(unittest.TestCase):
         self.assertEqual(demo_user['email'], self.auth_service.DEFAULT_DEMO_EMAIL.lower())
         self.assertEqual(demo_user['provider'], 'email')
 
+    def test_caretaker_demo_user_is_seeded(self):
+        caretaker_user = self.auth_service.authenticate_user(
+            self.auth_service.DEFAULT_CARETAKER_EMAIL,
+            self.auth_service.DEFAULT_CARETAKER_PASSWORD,
+        )
+
+        self.assertIsNotNone(caretaker_user)
+        self.assertEqual(caretaker_user['email'], self.auth_service.DEFAULT_CARETAKER_EMAIL.lower())
+        self.assertEqual(caretaker_user['role'], 'caretaker')
+
 
 if __name__ == '__main__':
     unittest.main()

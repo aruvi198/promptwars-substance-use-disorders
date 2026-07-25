@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 DB_PATH = os.environ.get('APP_DB_PATH', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'app.db'))
 DEFAULT_DEMO_EMAIL = 'demo@aegis.local'
 DEFAULT_DEMO_PASSWORD = 'Demo123!'
+DEFAULT_CARETAKER_EMAIL = 'caretaker@aegis.local'
+DEFAULT_CARETAKER_PASSWORD = 'Caretaker123!'
 
 
 def _get_connection():
@@ -42,6 +44,7 @@ def init_db():
         _close_connection(connection)
 
     seed_demo_user()
+    seed_caretaker_user()
 
 
 def seed_demo_user():
@@ -61,6 +64,32 @@ def seed_demo_user():
                 _hash_password(DEFAULT_DEMO_PASSWORD),
                 'Demo User',
                 'hero',
+                'email',
+                0,
+                datetime.now(timezone.utc).isoformat(),
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        connection.commit()
+
+
+def seed_caretaker_user():
+    with _get_connection() as connection:
+        existing = connection.execute('SELECT id FROM users WHERE email = ?', (DEFAULT_CARETAKER_EMAIL.lower(),)).fetchone()
+        if existing:
+            return
+
+        connection.execute(
+            '''
+            INSERT INTO users (id, email, password_hash, username, role, provider, is_anonymous, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                'caretaker-user',
+                DEFAULT_CARETAKER_EMAIL.lower(),
+                _hash_password(DEFAULT_CARETAKER_PASSWORD),
+                'Care Buddy',
+                'caretaker',
                 'email',
                 0,
                 datetime.now(timezone.utc).isoformat(),
