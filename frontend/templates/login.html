@@ -9,8 +9,8 @@
 <body>
     <header>
         <div class="logo-container">
-            <span class="logo-icon">🔆</span>
-            <span class="logo-text">Aegis Recovery</span>
+            <span class="logo-icon">�</span>
+            <span class="logo-text">You Can</span>
         </div>
     </header>
 
@@ -18,24 +18,40 @@
         <div class="login-card glass-container">
             <h1 class="login-title">Welcome to Aegis</h1>
             <p class="login-subtitle">A GenAI Recovery & Prevention Ecosystem</p>
+            <p class="login-subtitle" style="margin-bottom: 1.25rem; color: #fbbf24;">Demo login: demo@aegis.local / Demo123!</p>
 
-            <form action="{{ url_for('login_page') }}" method="POST">
+            {% if error %}
+                <p class="form-error" role="alert">{{ error }}</p>
+            {% endif %}
+
+            <form action="{{ url_for('login_page') }}" method="POST" novalidate>
                 <input type="hidden" name="role" id="selected-role" value="hero">
                 
-                <div class="role-selector">
-                    <div class="role-option selected" data-role="hero">
-                        <span class="role-icon">🌱</span>
+                <fieldset class="role-selector" aria-label="Choose your role">
+                    <legend class="sr-only">Choose your role</legend>
+                    <button type="button" class="role-option selected" data-role="hero" aria-pressed="true">
+                        <span class="role-icon" aria-hidden="true">🌱</span>
                         <span class="role-label">Recovery Hero</span>
-                    </div>
-                    <div class="role-option" data-role="caretaker">
-                        <span class="role-icon">🤝</span>
-                        <span class="role-label">Caregiver</span>
-                    </div>
+                    </button>
+                    <button type="button" class="role-option" data-role="caretaker" aria-pressed="false">
+                        <span class="role-icon" aria-hidden="true">🤝</span>
+                        <span class="role-label">Care Buddy</span>
+                    </button>
+                </fieldset>
+
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <input type="email" name="email" id="email" class="input-field" placeholder="you@example.com" autocomplete="email" maxlength="120">
+                </div>
+
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" name="password" id="password" class="input-field" placeholder="Create or enter a password" autocomplete="current-password" maxlength="120">
                 </div>
 
                 <div class="input-group">
                     <label for="username">Your Name</label>
-                    <input type="text" name="username" id="username" class="input-field" placeholder="Enter your name..." required value="Alex">
+                    <input type="text" name="username" id="username" class="input-field" placeholder="Enter your name..." autocomplete="name" value="Alex" maxlength="80">
                 </div>
 
                 <button type="submit" class="btn-primary">Enter Dashboard</button>

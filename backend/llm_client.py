@@ -1,7 +1,6 @@
 import os
 import logging
 import requests
-import json
 from backend.config import Config
 
 logger = logging.getLogger(__name__)
@@ -12,14 +11,23 @@ class LLMClient:
         self.model_name = Config.LLM_MODEL_NAME
         self.api_key = Config.LLM_API_KEY
         self.api_endpoint = Config.LLM_API_ENDPOINT
+        self._prompt_cache = {}
         
         # Load prompt templates path
         self.prompts_dir = os.path.join(os.path.dirname(__file__), 'prompts')
         logger.info(f"Initialized LLM Client using provider: {self.provider}")
 
+    def _normalize_severity(self, severity: str) -> str:
+        normalized = (severity or 'general_wellness').strip().lower()
+        return normalized if normalized in {'general_wellness', 'moderate_support', 'critical_emergency', 'caregiver_guidance'} else 'general_wellness'
+
     def _load_prompt_template(self, severity: str) -> str:
         """Loads prompt template based on severity/category clicked."""
-        filename = f"{severity}.txt"
+        normalized_severity = self._normalize_severity(severity)
+        if normalized_severity in self._prompt_cache:
+            return self._prompt_cache[normalized_severity]
+
+        filename = f"{normalized_severity}.txt"
         filepath = os.path.join(self.prompts_dir, filename)
         
         if not os.path.exists(filepath):
@@ -28,10 +36,14 @@ class LLMClient:
             
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
-                return f.read()
+                template = f.read()
+                self._prompt_cache[normalized_severity] = template
+                return template
         except Exception as e:
             logger.error(f"Error loading prompt template {filename}: {e}")
-            return "Provide a warm response to the user's input: {user_input}"
+            fallback = "Provide a warm response to the user's input: {user_input}"
+            self._prompt_cache[normalized_severity] = fallback
+            return fallback
 
     def generate_response(self, user_input: str, severity: str) -> str:
         """
@@ -86,11 +98,21 @@ class LLMClient:
             if candidates:
                 parts = candidates[0].get('content', {}).get('parts', [])
                 if parts:
-                    return parts[0].get('text', '').strip()
-            return "I am here for you, but I couldn't receive a response from the GenAI model right now. Please try again."
+                    text = parts[0].get('text', '').strip()
+                    if self._is_meaningful_response(text):
+                        return text
+            return self._generate_fallback_response('', 'general_wellness')
         except Exception as e:
             logger.error(f"Gemini API request failed: {e}")
-            return f"[API Error: Unable to contact LLM. Direct Assistance: Please reach out to your caregiver or contact emergency support lines.]"
+            return self._generate_fallback_response('', 'general_wellness')
+
+    def _is_meaningful_response(self, text: str) -> bool:
+        if not text:
+            return False
+        cleaned = ' '.join(str(text).split())
+        if len(cleaned) < 50:
+            return False
+        return not cleaned.lower().startswith(('i hear you, and i', 'i hear you'))
 
     def _generate_fallback_response(self, user_input: str, severity: str, error: str = '') -> str:
         """

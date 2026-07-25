@@ -10,7 +10,12 @@ else:
 
 class Config:
     # Flask Settings
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-1298471239')
+    SECRET_KEY = (
+        os.environ.get('SECRET_KEY')
+        or os.environ.get('FLASK_SECRET_KEY')
+        or os.environ.get('SESSION_SECRET')
+        or ''
+    )
     DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     PORT = int(os.environ.get('PORT', 5000))
     HOST = os.environ.get('HOST', '0.0.0.0')

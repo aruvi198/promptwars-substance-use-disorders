@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiResponseText = document.getElementById('ai-response-text');
     const speakerBtn = document.getElementById('speaker-btn');
     const severityBtns = document.querySelectorAll('.severity-btn');
+    const emergencyBtn = document.querySelector('.emergency-btn');
     
     // Simple inline WAV encoder class for recording audio/wav format natively in the browser
     class WavAudioRecorder {
@@ -108,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeStream = null;
     let wavRecorder = null;
     let isRecording = false;
+    let isProcessing = false;
     let currentSeverity = 'general_wellness';
     let lastGeneratedResponse = '';
 
@@ -123,19 +125,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (emergencyBtn) {
+        emergencyBtn.addEventListener('click', async () => {
+            try {
+                await fetch('/api/emergency', { method: 'POST' });
+                recordStatus.textContent = 'Caretaker alert sent';
+            } catch (err) {
+                console.error('Emergency alert failed:', err);
+            }
+        });
+    }
+
     // Mic recording trigger
     if (recordBtn) {
         recordBtn.addEventListener('click', async () => {
+            if (isProcessing) {
+                return;
+            }
+
             if (!isRecording) {
                 try {
                     activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     startRecording(activeStream);
                 } catch (err) {
                     console.error('Error accessing microphone:', err);
+                    recordStatus.textContent = 'Microphone access is required to use speech-to-text.';
                     alert('Microphone access is required to use speech-to-text. Please enable it in browser settings.');
                 }
             } else {
-                stopRecording();
+                await stopRecording();
             }
         });
     }
@@ -151,20 +169,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function stopRecording() {
-        if (wavRecorder && isRecording) {
-            const audioBlob = wavRecorder.stop();
-            
-            // Stop all tracks on the active stream to release microphone resource
-            if (activeStream) {
-                activeStream.getTracks().forEach(track => track.stop());
-            }
-            
-            isRecording = false;
-            recordBtn.classList.remove('recording');
-            recordStatus.textContent = 'Processing speech...';
-            console.log('Recording stopped...');
-            
+        if (!wavRecorder || !isRecording) {
+            return;
+        }
+
+        isProcessing = true;
+        const audioBlob = wavRecorder.stop();
+        
+        if (activeStream) {
+            activeStream.getTracks().forEach(track => track.stop());
+            activeStream = null;
+        }
+        
+        isRecording = false;
+        wavRecorder = null;
+        recordBtn.classList.remove('recording');
+        recordStatus.textContent = 'Processing speech...';
+        console.log('Recording stopped...');
+        
+        try {
             await handleAudioUpload(audioBlob);
+        } finally {
+            isProcessing = false;
         }
     }
 
@@ -182,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Transcription failed');
             
             const data = await response.json();
-            const transcribedText = data.text;
+            const transcribedText = data.text || '';
             
             if (speechText) {
                 speechText.textContent = transcribedText;

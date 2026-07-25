@@ -9,8 +9,8 @@
 <body>
     <header>
         <div class="logo-container">
-            <span class="logo-icon">🔆</span>
-            <span class="logo-text">Aegis Recovery</span>
+            <span class="logo-icon">�</span>
+            <span class="logo-text">You Can</span>
         </div>
         <div class="nav-links">
             <a href="{{ url_for('dashboard_page') }}" class="nav-link">Dashboard</a>
@@ -25,12 +25,16 @@
             <!-- Left Console -->
             <div class="console-card glass-container">
                 <div class="console-title">
-                    <span>{{ "Hero Support Center" if role == "hero" else "Caregiver Control Room" }}</span>
+                    <span>{{ "Hero Support Center" if role == "hero" else "Care Buddy Control Room" }}</span>
                 </div>
                 
                 {% if role == "hero" %}
                 <!-- Hero Flow: Zero Typing Interventions -->
                 <div>
+                    <div class="emergency-banner" role="alert">
+                        <strong>Critical Emergency?</strong>
+                        <span>Use the red emergency option below for immediate help.</span>
+                    </div>
                     <p style="margin-bottom: 0.75rem; color: var(--text-muted); font-size: 0.95rem;">Select severity, tap the microphone, and express what you are experiencing.</p>
                     <div class="severity-selector">
                         <button class="severity-btn active" data-severity="general_wellness">
@@ -46,12 +50,14 @@
                 </div>
 
                 <div class="audio-panel">
-                    <button class="record-btn" id="record-btn" aria-label="Record voice trigger">
-                        <span class="record-icon">🎤</span>
-                    </button>
-                    <div class="record-status" id="record-status">Tap to talk (zero-typing)</div>
-                </div>
-
+                    <a class="emergency-btn" href="tel:911" aria-label="Call emergency services">
+                            <span class="emergency-icon" aria-hidden="true">🚨</span>
+                            <span>Call Emergency</span>
+                        </a>
+                        <button class="record-btn" id="record-btn" type="button" aria-label="Record voice trigger" aria-describedby="record-status">
+                            <span class="record-icon" aria-hidden="true">🎤</span>
+                        </button>
+                        <div class="record-status" id="record-status" aria-live="polite">Tap to talk (zero-typing)</div>
                 <div class="chat-display">
                     <div class="speech-box">
                         <div class="box-title">What we heard</div>
@@ -61,7 +67,7 @@
                     <div class="ai-box">
                         <div class="box-title">
                             <span>Aegis Guidance</span>
-                            <button class="speaker-btn" id="speaker-btn" title="Read response out loud">🔊</button>
+                            <button class="speaker-btn" id="speaker-btn" type="button" title="Read response out loud" aria-label="Read response out loud">🔊</button>
                         </div>
                         <div class="box-content" id="ai-response-text">[Support script will be generated here...]</div>
                     </div>
@@ -74,11 +80,10 @@
                 </div>
                 
                 <div class="audio-panel">
-                    <button class="record-btn" id="record-btn" aria-label="Record caregiver notes">
-                        <span class="record-icon">🎤</span>
-                    </button>
-                    <div class="record-status" id="record-status">Tap to record logs/concerns</div>
-                </div>
+                        <button class="record-btn" id="record-btn" type="button" aria-label="Record caregiver notes" aria-describedby="record-status">
+                            <span class="record-icon" aria-hidden="true">🎤</span>
+                        </button>
+                        <div class="record-status" id="record-status" aria-live="polite">Tap to record logs/concerns</div>
 
                 <div class="chat-display">
                     <div class="speech-box">
@@ -89,7 +94,7 @@
                     <div class="ai-box">
                         <div class="box-title">
                             <span>Suggested Intervention Protocol</span>
-                            <button class="speaker-btn" id="speaker-btn" title="Read suggestions out loud">🔊</button>
+                            <button class="speaker-btn" id="speaker-btn" type="button" title="Read suggestions out loud" aria-label="Read suggestions out loud">🔊</button>
                         </div>
                         <div class="box-content" id="ai-response-text">[Suggested care scripts will generate here...]</div>
                     </div>
@@ -104,7 +109,7 @@
                     <ul class="resource-list">
                         <li class="resource-item">
                             <span>Immediate Grounding Box</span>
-                            <span class="resource-action" style="cursor: pointer;" onclick="alert('Box breathing: Inhale 4s, Hold 4s, Exhale 4s, Hold 4s.')">Start</span>
+                            <button class="resource-action grounding-trigger" type="button">Start</button>
                         </li>
                         <li class="resource-item">
                             <span>Crisis Hotline (988)</span>
@@ -113,39 +118,181 @@
                     </ul>
                 </div>
                 
+                {% if role == "caretaker" %}
+                <div class="info-card glass-container">
+                    <h3>📋 Care Buddy Activity</h3>
+                    <div class="resource-list">
+                        {% if alerts %}
+                            {% for alert in alerts %}
+                                <div class="resource-item">
+                                    <div>
+                                        <strong>{{ alert.event.replace('_',' ').title() }}</strong>
+                                        <p>{{ alert.detail }}</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="resource-item">
+                                <div>
+                                    <strong>No alerts yet</strong>
+                                    <p>Critical emergency and feature activity will appear here.</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="info-card glass-container">
                     <h3>📚 Educational Resources</h3>
-                    <ul class="resource-list">
-                        <li class="resource-item">
-                            <a href="#">Understanding Cravings</a>
+                    <div class="resource-list">
+                        <button class="resource-item resource-card resource-modal-trigger" type="button" data-title="Understanding Cravings" data-body="Cravings are often temporary and can be managed with grounding, hydration, and a short pause. Try naming the craving, waiting 5 minutes, and reaching out to someone you trust." data-link="https://www.samhsa.gov/find-help/national-helpline" data-link-label="SAMHSA Help Resources">
+                            <div>
+                                <strong>Understanding Cravings</strong>
+                                <p>Learn what cravings are and how to respond calmly.</p>
+                            </div>
                             <span>➔</span>
-                        </li>
-                        <li class="resource-item">
-                            <a href="#">De-escalation Strategies</a>
+                        </button>
+                        <button class="resource-item resource-card resource-modal-trigger" type="button" data-title="De-escalation Strategies" data-body="When distress rises, slow your breathing, lower the volume of the situation, and focus on one small step. A calm voice, a quiet room, and a trusted person can help." data-link="https://www.nimh.nih.gov/health/topics/suicide-prevention" data-link-label="NIMH Support Info">
+                            <div>
+                                <strong>De-escalation Strategies</strong>
+                                <p>Practical calming steps for moments of distress.</p>
+                            </div>
                             <span>➔</span>
-                        </li>
-                        <li class="resource-item">
-                            <a href="#">Building Caregiver Resilience</a>
+                        </button>
+                        <button class="resource-item resource-card resource-modal-trigger" type="button" data-title="Building Caregiver Resilience" data-body="Caregivers need support too. Take short breaks, ask for help, and keep one grounding routine for your own well-being each day." data-link="https://www.cdc.gov/mentalhealth/index.htm" data-link-label="CDC Mental Health Resources">
+                            <div>
+                                <strong>Building Caregiver Resilience</strong>
+                                <p>Ideas for caring for yourself while supporting others.</p>
+                            </div>
                             <span>➔</span>
-                        </li>
-                    </ul>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
+
+    <div class="modal-overlay" id="grounding-modal" style="display: none;" hidden>
+        <div class="modal-card glass-container" role="dialog" aria-modal="true" aria-labelledby="grounding-title">
+            <button class="modal-close" id="grounding-close" type="button" aria-label="Close grounding guidance">×</button>
+            <h3 id="grounding-title">Immediate Grounding Box</h3>
+            <p class="modal-body">Try this calming pattern for 1 minute:</p>
+            <ol class="grounding-steps">
+                <li>Inhale slowly through your nose for 4 seconds.</li>
+                <li>Hold your breath gently for 4 seconds.</li>
+                <li>Exhale slowly for 4 seconds.</li>
+                <li>Hold again for 4 seconds.</li>
+            </ol>
+            <p class="modal-footnote">If this feels overwhelming, focus on one slow breath and reach out to someone you trust.</p>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="resource-modal" style="display: none;" hidden>
+        <div class="modal-card glass-container" role="dialog" aria-modal="true" aria-labelledby="resource-title">
+            <button class="modal-close" id="resource-close" type="button" aria-label="Close resource guidance">×</button>
+            <h3 id="resource-title">Resource</h3>
+            <p class="modal-body" id="resource-body"></p>
+            <a id="resource-link" class="resource-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+    </div>
     
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script>
-        // Set context for caretaker dashboard
-        {% if role == "caretaker" %}
-            window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', () => {
+            const groundingModal = document.getElementById('grounding-modal');
+            const groundingTrigger = document.querySelector('.grounding-trigger');
+            const groundingCloseBtn = document.getElementById('grounding-close');
+            const resourceModal = document.getElementById('resource-modal');
+            const resourceCloseBtn = document.getElementById('resource-close');
+            const resourceTitle = document.getElementById('resource-title');
+            const resourceBody = document.getElementById('resource-body');
+            const resourceLink = document.getElementById('resource-link');
+            const resourceButtons = document.querySelectorAll('.resource-modal-trigger');
+
+            const showGroundingModal = () => {
+                groundingModal.style.display = 'flex';
+                groundingModal.hidden = false;
+                document.body.classList.add('modal-open');
+            };
+
+            const hideGroundingModal = () => {
+                groundingModal.style.display = 'none';
+                groundingModal.hidden = true;
+                document.body.classList.remove('modal-open');
+            };
+
+            const showResourceModal = (title, body, link, linkLabel) => {
+                resourceTitle.textContent = title;
+                resourceBody.textContent = body;
+                resourceLink.href = link;
+                resourceLink.textContent = linkLabel;
+                resourceModal.style.display = 'flex';
+                resourceModal.hidden = false;
+                document.body.classList.add('modal-open');
+            };
+
+            const hideResourceModal = () => {
+                resourceModal.style.display = 'none';
+                resourceModal.hidden = true;
+                document.body.classList.remove('modal-open');
+            };
+
+            if (groundingTrigger && groundingModal) {
+                groundingTrigger.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    showGroundingModal();
+                });
+            }
+
+            if (groundingCloseBtn && groundingModal) {
+                groundingCloseBtn.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    hideGroundingModal();
+                });
+            }
+
+            if (groundingModal) {
+                groundingModal.addEventListener('click', (event) => {
+                    if (event.target === groundingModal) {
+                        hideGroundingModal();
+                    }
+                });
+            }
+
+            resourceButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    showResourceModal(
+                        button.dataset.title,
+                        button.dataset.body,
+                        button.dataset.link,
+                        button.dataset.linkLabel
+                    );
+                });
+            });
+
+            if (resourceCloseBtn && resourceModal) {
+                resourceCloseBtn.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    hideResourceModal();
+                });
+            }
+
+            if (resourceModal) {
+                resourceModal.addEventListener('click', (event) => {
+                    if (event.target === resourceModal) {
+                        hideResourceModal();
+                    }
+                });
+            }
+
+            {% if role == "caretaker" %}
                 const recordBtn = document.getElementById('record-btn');
                 if (recordBtn) {
-                    // Override default severity check-in to caretaker advice
                     window.currentSeverity = 'caregiver_guidance';
                 }
-            });
-        {% endif %}
+            {% endif %}
+        });
     </script>
 </body>
 </html>

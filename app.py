@@ -13,11 +13,15 @@ sys.modules['aifc'] = aifc_mock
 
 import logging
 import uuid
+import json
+import tempfile
+from pathlib import Path
 from flask import Flask, request, jsonify, render_template, send_from_directory, redirect, url_for, session
 from gtts import gTTS
 from backend.config import Config
 from models.speech_to_text import SpeechToTextEngine
 from backend.llm_client import LLMClient
+from backend.auth_service import authenticate_user, create_anonymous_user, create_user, get_user_by_id, init_db, upgrade_anonymous_user
 
 # Setup logging
 os.makedirs(os.path.join(os.path.dirname(__file__), 'logs'), exist_ok=True)
@@ -40,10 +44,98 @@ app = Flask(
     static_folder='frontend/static'
 )
 app.config.from_object(Config)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=not Config.DEBUG,
+    MAX_CONTENT_LENGTH=16 * 1024 * 1024,
+)
+
+if not Config.DEBUG and not Config.SECRET_KEY:
+    raise RuntimeError('SECRET_KEY must be set in production mode.')
 
 # Initialize engines
 stt_engine = SpeechToTextEngine()
 llm_client = LLMClient()
+init_db()
+
+LOG_FILE_PATH = Path(__file__).resolve().parent / 'logs' / 'usage_log.json'
+LOG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+ALLOWED_ROLES = {'hero', 'caretaker'}
+ALLOWED_SEVERITIES = {'general_wellness', 'moderate_support', 'critical_emergency', 'caregiver_guidance'}
+MAX_USERNAME_LENGTH = 80
+MAX_TEXT_LENGTH = 2000
+
+
+def _load_usage_log():
+    if not LOG_FILE_PATH.exists():
+        return []
+    try:
+        with LOG_FILE_PATH.open('r', encoding='utf-8') as handle:
+            data = json.load(handle)
+            return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_usage_log(entries):
+    with LOG_FILE_PATH.open('w', encoding='utf-8') as handle:
+        json.dump(entries, handle, indent=2)
+
+
+def _record_usage(event_name: str, detail: str = ''):
+    entries = _load_usage_log()
+    entries.append({
+        'event': event_name,
+        'detail': detail,
+        'user': session.get('username', 'Unknown'),
+        'role': session.get('user_role', 'unknown'),
+    })
+    _save_usage_log(entries)
+
+
+def _get_caretaker_alerts():
+    entries = _load_usage_log()
+    return [entry for entry in entries if entry.get('event') in {'critical_emergency', 'feature_used'}]
+
+
+def _sanitize_username(username: str) -> str:
+    cleaned = (username or '').strip()
+    if not cleaned or len(cleaned) > MAX_USERNAME_LENGTH:
+        raise ValueError('Please enter a valid name.')
+    return cleaned
+
+
+def _sanitize_role(role: str) -> str:
+    cleaned = (role or '').strip().lower()
+    if cleaned not in ALLOWED_ROLES:
+        raise ValueError(f'Invalid role selected. Expected one of: {", ".join(sorted(ALLOWED_ROLES))}.')
+    return cleaned
+
+
+def _sanitize_severity(severity: str) -> str:
+    cleaned = (severity or '').strip().lower()
+    if cleaned not in ALLOWED_SEVERITIES:
+        raise ValueError('Unsupported severity selected.')
+    return cleaned
+
+
+def _set_authenticated_session(user_payload: dict):
+    session.clear()
+    session['user_id'] = user_payload['id']
+    session['user_role'] = user_payload['role']
+    session['username'] = user_payload['username']
+    session['auth_provider'] = user_payload['provider']
+    session['is_anonymous'] = user_payload['is_anonymous']
+    session['email'] = user_payload.get('email') or ''
+
+
+def _load_authenticated_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return get_user_by_id(user_id)
+
 
 # Helper for login protection
 def login_required(f):
@@ -60,19 +152,45 @@ def login_required(f):
 def index():
     if 'user_role' in session:
         return redirect(url_for('dashboard_page'))
-    return redirect(url_for('login_page'))
+
+    anonymous_user = create_anonymous_user(username='Guest User', role='hero')
+    _set_authenticated_session(anonymous_user)
+    return redirect(url_for('dashboard_page'))
+
+
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'ok',
+        'service': 'promptwars-substance-use-disorders',
+        'debug': Config.DEBUG,
+    })
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     if request.method == 'POST':
-        # Simple mockup session setup based on form input
+        email = (request.form.get('email') or '').strip()
+        password = (request.form.get('password') or '').strip()
         role = request.form.get('role', 'hero')
-        username = request.form.get('username', 'Recovery Hero')
-        session['user_role'] = role
-        session['username'] = username
-        logger.info(f"User '{username}' logged in as role: {role}")
+        username = (request.form.get('username') or '').strip()
+
+        try:
+            role = _sanitize_role(role)
+            if email and password:
+                user_payload = authenticate_user(email, password)
+                if not user_payload:
+                    return render_template('login.html', error='Invalid email or password.'), 401
+            else:
+                if not username:
+                    return render_template('login.html', error='Please enter your name.'), 400
+                user_payload = create_user(email=email or f'{username.lower()}@local', password=password or 'changeme123', username=username, role=role)
+        except ValueError as exc:
+            return render_template('login.html', error=str(exc)), 400
+
+        _set_authenticated_session(user_payload)
+        logger.info(f"User '{user_payload['username']}' logged in as role: {user_payload['role']}")
         return redirect(url_for('dashboard_page'))
-    return render_template('login.html')
+    return render_template('login.html', error='')
 
 @app.route('/logout')
 def logout():
@@ -84,12 +202,62 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard_page():
-    return render_template('dashboard.html', role=session['user_role'], username=session['username'])
+    alerts = _get_caretaker_alerts() if session.get('user_role') == 'caretaker' else []
+    return render_template('dashboard.html', role=session['user_role'], username=session['username'], alerts=alerts)
 
 @app.route('/profile')
 @login_required
 def profile_page():
-    return render_template('profile.html', role=session['user_role'], username=session['username'])
+    user_payload = _load_authenticated_user() or {
+        'id': session.get('user_id'),
+        'username': session.get('username', 'Guest'),
+        'role': session.get('user_role', 'hero'),
+        'provider': session.get('auth_provider', 'anonymous'),
+        'is_anonymous': session.get('is_anonymous', False),
+    }
+    return render_template(
+        'profile.html',
+        role=user_payload['role'],
+        username=user_payload['username'],
+        is_anonymous=user_payload['is_anonymous'],
+        auth_provider=user_payload['provider'],
+    )
+
+
+@app.route('/api/backup-account', methods=['POST'])
+@login_required
+def backup_account():
+    email = (request.form.get('email') or '').strip()
+    password = (request.form.get('password') or '').strip()
+
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required.'}), 400
+
+    if session.get('is_anonymous', False):
+        user_id = session.get('user_id')
+        if not user_id:
+            anonymous_user = create_anonymous_user(username=session.get('username', 'Guest User'), role=session.get('user_role', 'hero'))
+            user_id = anonymous_user['id']
+            session['user_id'] = user_id
+
+        upgraded_user = upgrade_anonymous_user(
+            user_id,
+            email,
+            password,
+            session.get('username', 'Guest User'),
+            session.get('user_role', 'hero'),
+        )
+        _set_authenticated_session(upgraded_user)
+        session['backup_email'] = email
+        logger.info(f"Anonymous session upgraded using email: {email}")
+        return jsonify({'message': 'Account backup completed.', 'provider': 'email'})
+
+    return jsonify({'message': 'Account already upgraded.'}), 200
+
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify({'error': 'Request body is too large.'}), 413
 
 # API Endpoints
 @app.route('/api/transcribe', methods=['POST'])
@@ -108,23 +276,21 @@ def api_transcribe():
         logger.error("Empty filename received")
         return jsonify({'error': 'Empty filename'}), 400
 
-    # Save audio temporarily
-    temp_filename = f"{uuid.uuid4()}.wav"
-    temp_filepath = os.path.join(os.path.dirname(__file__), 'temp', temp_filename)
-    
+    temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+    with tempfile.NamedTemporaryFile('wb', suffix='.wav', dir=temp_dir, delete=False) as handle:
+        temp_filepath = handle.name
+
     try:
         audio_file.save(temp_filepath)
         logger.info(f"Saved temp audio file to: {temp_filepath}")
 
-        # Transcribe audio using STT engine
         transcription = stt_engine.transcribe(temp_filepath)
         return jsonify({'text': transcription})
-        
     except Exception as e:
         logger.exception("Error processing transcription request:")
         return jsonify({'error': str(e)}), 500
     finally:
-        # Clean up temporary file
         if os.path.exists(temp_filepath):
             try:
                 os.remove(temp_filepath)
@@ -140,18 +306,40 @@ def api_generate():
     Expects JSON containing 'text' and 'severity'.
     """
     data = request.get_json() or {}
-    user_text = data.get('text', '').strip()
-    severity = data.get('severity', 'general_wellness').strip()
-    
+    user_text = (data.get('text', '') or '').strip()
+    severity = (data.get('severity', 'general_wellness') or '').strip()
+
     if not user_text:
         return jsonify({'error': 'No text provided'}), 400
-        
+
+    if len(user_text) > MAX_TEXT_LENGTH:
+        return jsonify({'error': 'Text is too long.'}), 413
+
     try:
-        response_text = llm_client.generate_response(user_text, severity)
+        severity_key = _sanitize_severity(severity)
+        response_text = llm_client.generate_response(user_text, severity_key)
+        _record_usage('feature_used', f"severity={severity_key}")
         return jsonify({'response': response_text})
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     except Exception as e:
         logger.exception("Error generating LLM response:")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/emergency', methods=['POST'])
+@login_required
+def api_emergency():
+    _record_usage('critical_emergency', 'Emergency button pressed')
+    return jsonify({'status': 'alerted', 'message': 'Caretaker alert recorded.'})
+
+
+@app.route('/api/usage-log', methods=['GET'])
+@login_required
+def api_usage_log():
+    if session.get('user_role') != 'caretaker':
+        return jsonify({'error': 'Only caretakers can view this'}), 403
+    return jsonify({'entries': _load_usage_log()[-20:]})
+
 
 @app.route('/api/tts', methods=['GET'])
 @login_required
@@ -164,25 +352,16 @@ def api_tts():
         return jsonify({'error': 'No text provided'}), 400
         
     try:
-        # Create TTS object using gTTS
+        temp_dir = os.path.join(os.path.dirname(__file__), 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+        with tempfile.NamedTemporaryFile('wb', suffix='.mp3', dir=temp_dir, delete=False) as handle:
+            temp_filepath = handle.name
+
         tts = gTTS(text=text, lang='en', slow=False)
-        
-        # Save to temp file
-        temp_filename = f"tts_{uuid.uuid4()}.mp3"
-        temp_filepath = os.path.join(os.path.dirname(__file__), 'temp', temp_filename)
         tts.save(temp_filepath)
-        
-        # Return audio file and then clean it up later or serve directly
-        @app.after_request
-        def cleanup_tts(response):
-            try:
-                if os.path.exists(temp_filepath):
-                    os.remove(temp_filepath)
-            except Exception as e:
-                logger.error(f"Error deleting temp tts file: {e}")
-            return response
-            
-        return send_from_directory(os.path.join(os.path.dirname(__file__), 'temp'), temp_filename, mimetype='audio/mpeg')
+
+        response = send_from_directory(temp_dir, os.path.basename(temp_filepath), mimetype='audio/mpeg')
+        return response
     except Exception as e:
         logger.exception("TTS generation failed:")
         return jsonify({'error': str(e)}), 500
