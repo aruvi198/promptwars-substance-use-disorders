@@ -19,7 +19,8 @@ class LLMClient:
 
     def _normalize_severity(self, severity: str) -> str:
         normalized = (severity or 'general_wellness').strip().lower()
-        return normalized if normalized in {'general_wellness', 'moderate_support', 'critical_emergency', 'caregiver_guidance'} else 'general_wellness'
+        valid_severities = {'general_wellness', 'moderate_support', 'critical_emergency', 'caregiver_guidance'}
+        return normalized if normalized in valid_severities else 'general_wellness'
 
     def _load_prompt_template(self, severity: str) -> str:
         """Loads prompt template based on severity/category clicked."""

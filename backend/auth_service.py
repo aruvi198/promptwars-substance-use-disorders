@@ -9,6 +9,7 @@ DEFAULT_DEMO_EMAIL = 'demo@aegis.local'
 DEFAULT_DEMO_PASSWORD = 'Demo123!'
 DEFAULT_CARETAKER_EMAIL = 'caretaker@aegis.local'
 DEFAULT_CARETAKER_PASSWORD = 'Caretaker123!'
+VALID_ROLES = {'hero', 'caretaker'}
 
 
 def _get_connection():
@@ -107,6 +108,10 @@ def create_user(email: str, password: str, username: str, role: str = 'hero') ->
     if not email or not password or not username:
         raise ValueError('Email, password, and username are required.')
 
+    normalized_role = (role or 'hero').strip().lower()
+    if normalized_role not in VALID_ROLES:
+        raise ValueError('Invalid role selected.')
+
     init_db()
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -118,7 +123,7 @@ def create_user(email: str, password: str, username: str, role: str = 'hero') ->
                 INSERT INTO users (id, email, password_hash, username, role, provider, is_anonymous, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''',
-                (user_id, email.lower(), _hash_password(password), username.strip(), role.lower(), 'email', 0, now, now),
+                (user_id, email.lower(), _hash_password(password), username.strip(), normalized_role, 'email', 0, now, now),
             )
         except sqlite3.IntegrityError as exc:
             raise ValueError('Email already registered.') from exc
@@ -137,6 +142,9 @@ def create_anonymous_user(username: str = 'Guest User', role: str = 'hero') -> d
     init_db()
     user_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
+    normalized_role = (role or 'hero').strip().lower()
+    if normalized_role not in VALID_ROLES:
+        normalized_role = 'hero'
 
     with _get_connection() as connection:
         connection.execute(
@@ -144,14 +152,14 @@ def create_anonymous_user(username: str = 'Guest User', role: str = 'hero') -> d
             INSERT INTO users (id, email, password_hash, username, role, provider, is_anonymous, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
-            (user_id, None, None, username.strip(), role.lower(), 'anonymous', 1, now, now),
+            (user_id, None, None, username.strip(), normalized_role, 'anonymous', 1, now, now),
         )
 
     return {
         'id': user_id,
         'email': None,
         'username': username.strip(),
-        'role': role.lower(),
+        'role': normalized_role,
         'provider': 'anonymous',
         'is_anonymous': True,
     }
