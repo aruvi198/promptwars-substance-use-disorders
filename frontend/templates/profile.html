@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Aegis Recovery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2.5rem;
+        }
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 1.5rem;
+        }
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <span class="logo-icon">🔆</span>
+            <span class="logo-text">Aegis Recovery</span>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard_page') }}" class="nav-link">Dashboard</a>
+            <a href="{{ url_for('profile_page') }}" class="nav-link">Profile</a>
+            <span class="user-badge {{ role }}">{{ role }}</span>
+            <a href="{{ url_for('logout') }}" class="nav-link" style="color: var(--severity-high);">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="profile-container glass-container">
+            <div class="profile-header">
+                <div class="avatar">
+                    {{ "🦸" if role == "hero" else "🤝" }}
+                </div>
+                <div>
+                    <h2>{{ username }}</h2>
+                    <p style="color: var(--text-muted);">Role: {{ role | capitalize }}</p>
+                </div>
+            </div>
+
+            <h3>Customize Recovery Settings</h3>
+            <form action="#" onsubmit="alert('Settings updated successfully!'); return false;" class="form-section">
+                <div class="input-group">
+                    <label for="contact-name">Primary Caregiver/Emergency Contact Name</label>
+                    <input type="text" id="contact-name" class="input-field" value="{{ 'Sarah (Caregiver)' if role == 'hero' else 'Alex (Hero)' }}">
+                </div>
+                
+                <div class="input-group">
+                    <label for="contact-phone">Contact Phone Number</label>
+                    <input type="tel" id="contact-phone" class="input-field" value="+1 (555) 019-2834">
+                </div>
+
+                {% if role == "hero" %}
+                <div class="input-group">
+                    <label for="safe-words">Custom Grounding Prompt Phrase</label>
+                    <input type="text" id="safe-words" class="input-field" value="Remind me of my goal to stay clean for my family.">
+                </div>
+                {% endif %}
+
+                <button type="submit" class="btn-primary" style="margin-top: 1rem; width: auto; align-self: flex-start; padding-left: 2.5rem; padding-right: 2.5rem;">Save Changes</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

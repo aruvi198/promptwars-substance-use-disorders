@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Aegis Recovery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <span class="logo-icon">🔆</span>
+            <span class="logo-text">Aegis Recovery</span>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard_page') }}" class="nav-link">Dashboard</a>
+            <a href="{{ url_for('profile_page') }}" class="nav-link">Profile</a>
+            <span class="user-badge {{ role }}">{{ role }}</span>
+            <a href="{{ url_for('logout') }}" class="nav-link" style="color: var(--severity-high);">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <div class="dashboard-grid">
+            <!-- Left Console -->
+            <div class="console-card glass-container">
+                <div class="console-title">
+                    <span>{{ "Hero Support Center" if role == "hero" else "Caregiver Control Room" }}</span>
+                </div>
+                
+                {% if role == "hero" %}
+                <!-- Hero Flow: Zero Typing Interventions -->
+                <div>
+                    <p style="margin-bottom: 0.75rem; color: var(--text-muted); font-size: 0.95rem;">Select severity, tap the microphone, and express what you are experiencing.</p>
+                    <div class="severity-selector">
+                        <button class="severity-btn active" data-severity="general_wellness">
+                            <span>🌱</span> Wellness Check-in
+                        </button>
+                        <button class="severity-btn" data-severity="moderate_support">
+                            <span>⚠️</span> Craving Support
+                        </button>
+                        <button class="severity-btn" data-severity="critical_emergency">
+                            <span>🚨</span> Critical Emergency
+                        </button>
+                    </div>
+                </div>
+
+                <div class="audio-panel">
+                    <button class="record-btn" id="record-btn" aria-label="Record voice trigger">
+                        <span class="record-icon">🎤</span>
+                    </button>
+                    <div class="record-status" id="record-status">Tap to talk (zero-typing)</div>
+                </div>
+
+                <div class="chat-display">
+                    <div class="speech-box">
+                        <div class="box-title">What we heard</div>
+                        <div class="box-content" id="speech-text">[Your voice transcript will appear here...]</div>
+                    </div>
+                    
+                    <div class="ai-box">
+                        <div class="box-title">
+                            <span>Aegis Guidance</span>
+                            <button class="speaker-btn" id="speaker-btn" title="Read response out loud">🔊</button>
+                        </div>
+                        <div class="box-content" id="ai-response-text">[Support script will be generated here...]</div>
+                    </div>
+                </div>
+                
+                {% else %}
+                <!-- Caretaker Flow -->
+                <div>
+                    <p style="margin-bottom: 0.75rem; color: var(--text-muted); font-size: 0.95rem;">Provide details or log observations to receive structured communication suggestions.</p>
+                </div>
+                
+                <div class="audio-panel">
+                    <button class="record-btn" id="record-btn" aria-label="Record caregiver notes">
+                        <span class="record-icon">🎤</span>
+                    </button>
+                    <div class="record-status" id="record-status">Tap to record logs/concerns</div>
+                </div>
+
+                <div class="chat-display">
+                    <div class="speech-box">
+                        <div class="box-title">Your Observations</div>
+                        <div class="box-content" id="speech-text">[Your recorded concerns will appear here...]</div>
+                    </div>
+                    
+                    <div class="ai-box">
+                        <div class="box-title">
+                            <span>Suggested Intervention Protocol</span>
+                            <button class="speaker-btn" id="speaker-btn" title="Read suggestions out loud">🔊</button>
+                        </div>
+                        <div class="box-content" id="ai-response-text">[Suggested care scripts will generate here...]</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Right Sidebar -->
+            <div class="sidebar-panel">
+                <div class="info-card glass-container">
+                    <h3>💡 Safety Toolkit</h3>
+                    <ul class="resource-list">
+                        <li class="resource-item">
+                            <span>Immediate Grounding Box</span>
+                            <span class="resource-action" style="cursor: pointer;" onclick="alert('Box breathing: Inhale 4s, Hold 4s, Exhale 4s, Hold 4s.')">Start</span>
+                        </li>
+                        <li class="resource-item">
+                            <span>Crisis Hotline (988)</span>
+                            <a href="tel:988" class="resource-action" style="color: var(--severity-high);">Call</a>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="info-card glass-container">
+                    <h3>📚 Educational Resources</h3>
+                    <ul class="resource-list">
+                        <li class="resource-item">
+                            <a href="#">Understanding Cravings</a>
+                            <span>➔</span>
+                        </li>
+                        <li class="resource-item">
+                            <a href="#">De-escalation Strategies</a>
+                            <span>➔</span>
+                        </li>
+                        <li class="resource-item">
+                            <a href="#">Building Caregiver Resilience</a>
+                            <span>➔</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Set context for caretaker dashboard
+        {% if role == "caretaker" %}
+            window.addEventListener('DOMContentLoaded', () => {
+                const recordBtn = document.getElementById('record-btn');
+                if (recordBtn) {
+                    // Override default severity check-in to caretaker advice
+                    window.currentSeverity = 'caregiver_guidance';
+                }
+            });
+        {% endif %}
+    </script>
+</body>
+</html>
