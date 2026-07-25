@@ -1,8 +1,12 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from a .env file if present
-load_dotenv()
+# Load environment variables from a .env file only for local development.
+if os.environ.get('RENDER', '').lower() not in {'1', 'true', 'yes'}:
+    load_dotenv()
+else:
+    os.environ.setdefault('STT_ENGINE', 'mock')
+    os.environ.setdefault('LLM_PROVIDER', 'mock')
 
 class Config:
     # Flask Settings
@@ -20,7 +24,7 @@ class Config:
     
     # Audio Speech-to-Text Model Config
     # Supports offline local models, standard APIs, or lightweight local python speech processors
-    STT_ENGINE = os.environ.get('STT_ENGINE', 'google')  # 'google' (free web api), 'whisper_local', or 'mock'
+    STT_ENGINE = os.environ.get('STT_ENGINE', 'mock').lower()  # 'google' (free web api), 'whisper_local', or 'mock'
     STT_MODEL_NAME = os.environ.get('STT_MODEL_NAME', 'openai/whisper-tiny') # used if local model is loaded
     
     # Log configuration

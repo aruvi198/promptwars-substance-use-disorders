@@ -36,6 +36,7 @@ class SpeechToTextEngine:
         logger.info(f"Starting transcription for {audio_file_path} using {self.engine_type}")
 
         if self.engine_type == 'mock':
+            logger.info("Using mock speech-to-text fallback")
             return "This is a mocked transcription. The user said: I am feeling overwhelmed and need help right now."
 
         # Initialize recognizer
@@ -57,11 +58,14 @@ class SpeechToTextEngine:
                 return recognizer.recognize_google(audio_data)
 
         except sr.UnknownValueError:
-            logger.error("Speech Recognition could not understand the audio.")
+            logger.warning("Speech Recognition could not understand the audio.")
             return "[Unable to understand audio. Please speak clearly or try typing.]"
         except sr.RequestError as e:
             logger.error(f"Speech Recognition service error: {e}")
             return f"[Speech Recognition service error: {str(e)}]"
+        except ConnectionError as e:
+            logger.error(f"Speech recognition connection issue: {e}")
+            return "[Speech recognition service is temporarily unavailable. Please try again or type your message.]"
         except Exception as e:
             logger.exception(f"Unexpected error during transcription: {e}")
             return f"[Transcription error: {str(e)}]"

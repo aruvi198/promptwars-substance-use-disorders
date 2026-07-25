@@ -36,21 +36,26 @@ class LLMClient:
     def generate_response(self, user_input: str, severity: str) -> str:
         """
         Wraps user_input in the severity-specific template and requests a response from the LLM.
+        Falls back to a calm, category-aware message if the model request fails.
         """
         template = self._load_prompt_template(severity)
         formatted_prompt = template.format(user_input=user_input)
-        
+
         logger.info(f"Generating LLM response for severity: {severity}")
 
         if self.provider == 'mock' or not self.api_key:
-            logger.info("Using mock GenAI response engine")
-            return self._generate_mock_response(user_input, severity)
+            logger.info("Using local fallback response because no live model key is configured")
+            return self._generate_fallback_response(user_input, severity)
 
         if self.provider == 'gemini':
-            return self._call_gemini_api(formatted_prompt)
+            try:
+                return self._call_gemini_api(formatted_prompt)
+            except Exception as exc:
+                logger.exception("Gemini request failed; using fallback response")
+                return self._generate_fallback_response(user_input, severity, error=str(exc))
         else:
-            logger.warning(f"Provider '{self.provider}' not recognized. Falling back to mock response.")
-            return self._generate_mock_response(user_input, severity)
+            logger.warning(f"Provider '{self.provider}' not recognized. Falling back to safe response.")
+            return self._generate_fallback_response(user_input, severity)
 
     def _call_gemini_api(self, prompt: str) -> str:
         """Calls Google's Gemini API."""
@@ -87,36 +92,33 @@ class LLMClient:
             logger.error(f"Gemini API request failed: {e}")
             return f"[API Error: Unable to contact LLM. Direct Assistance: Please reach out to your caregiver or contact emergency support lines.]"
 
-    def _generate_mock_response(self, user_input: str, severity: str) -> str:
+    def _generate_fallback_response(self, user_input: str, severity: str, error: str = '') -> str:
         """
-        Returns realistic, comforting, and contextual mock responses for testing
-        and offline demonstration of the platform.
+        Returns calm, category-aware support text when the live model fails.
+        This keeps the experience helpful even if the model or transcription layer is unavailable.
         """
-        user_input_lower = user_input.lower()
-        
+        user_input = (user_input or '').strip()
+
         if severity == 'critical_emergency':
             return (
-                "I hear you, and please know that you are not alone. Let's focus on safety right now. "
-                "Take a slow, deep breath: inhale for 4 seconds, hold, and exhale. "
-                "We strongly encourage you to press the emergency call button or reach out to your caretaker immediately. "
-                "Help is always available."
+                "I’m here with you, and I want to help you focus on immediate safety. "
+                "Please move to a safe place, call emergency services or a trusted person if you feel in danger, "
+                "and take one slow breath in and out. If you’re in immediate danger, seek urgent help now."
             )
         elif severity == 'moderate_support':
             return (
-                "Cravings and distress can feel intense, but they are like waves that will peak and pass. "
-                "Let's try a simple distraction: try drinking a glass of water or taking three deep breaths. "
-                "I have also sent a notification option to your Caretaker if you'd like them to check in on you. You can do this."
+                "Cravings and stress can feel overwhelming, but they often pass with time and a small next step. "
+                "Try drinking a glass of water, taking three slow breaths, or stepping away for a few minutes. "
+                "If you want extra support, reach out to a trusted person or caregiver."
             )
         elif severity == 'caregiver_guidance':
             return (
-                "Thank you for being there. It is common to feel overwhelmed in this role. "
-                "When responding, try to use calm, non-confrontational language, and validate their effort. "
-                "Remember to check in on your own well-being today too. You are doing a wonderful job."
+                "Thank you for being there for someone who needs support. Keep your tone calm and nonjudgmental, "
+                "validate their effort, and encourage one small next step. You are doing meaningful work."
             )
         else:
-            # general_wellness
+            # wellness check-in
             return (
-                "Thank you for sharing that with me. Every step forward, no matter how small, is a victory. "
-                "For today's reflection: try to focus on one thing you are grateful for or one small action that brings you peace. "
-                "Keep going, you are making progress!"
+                "Thank you for checking in. You do not need to have everything figured out right now. "
+                f"Take a moment to notice one small thing that feels grounding today. {user_input[:120] if user_input else ''}".strip()
             )

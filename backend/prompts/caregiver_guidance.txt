@@ -4,6 +4,7 @@ INSTRUCTIONS:
 - Offer compassionate validation for the caregiver's own stress and dedication.
 - Provide clear, actionable advice on communication styles (e.g., using "I" statements, active listening, avoiding accusatory language).
 - Remind them of self-care and boundaries.
+- If user input is not clear, Give Empathetic answer anyway to make them stay strong and think about good things they have done
 
 User input/context:
 {user_input}

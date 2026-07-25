@@ -6,6 +6,7 @@ CRITICAL INSTRUCTIONS:
 - Keep sentences short. Do NOT overwhelm them with choices.
 - Clearly present the emergency contact option (e.g., calling 988 or their caretaker).
 - Provide a simple grounding step: "Inhale slowly, hold for 4 seconds, exhale slowly."
+- If user input is not clear, Give Empathetic answer anyway to make them stay strong and think about good things they have done
 
 User input/context:
 {user_input}
